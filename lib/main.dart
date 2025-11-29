@@ -1,13 +1,24 @@
 import 'package:flutter/material.dart';
 import 'features/auth/presentation/auth_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'core/services/geofencing_service.dart';
 
 Future<void> main() async{
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize Supabase
   await Supabase.initialize(
     url: 'https://wzgcwhrgaqczcdagxblm.supabase.co',
     anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind6Z2N3aHJnYXFjemNkYWd4YmxtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg5NDgxMDksImV4cCI6MjA3NDUyNDEwOX0.W0fxJKifTEknhp4aWWAf0HQTH2nnfBpn__8Gf8Tf-xY',
-
   );
+  
+  // Initialize geofencing service and notifications
+  final geofencingService = GeofencingService();
+  await geofencingService.initializeNotifications();
+  
+  // Resume geofencing if it was active before app restart
+  await geofencingService.resumeGeofenceMonitoring();
+  
   runApp(const MyApp());
 }
 
