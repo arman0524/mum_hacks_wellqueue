@@ -5,6 +5,7 @@ import '../../core/services/queue_service.dart';
 import '../../core/services/geofencing_service.dart';
 import '../../core/model/queue_entry.dart';
 import 'package:intl/intl.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class CheckInScreen extends StatefulWidget {
   const CheckInScreen({super.key});
@@ -18,11 +19,62 @@ class _CheckInScreenState extends State<CheckInScreen> {
   final _geofencingService = GeofencingService();
   StreamSubscription<QueueEntry?>? _queueSubscription;
   QueueEntry? _currentQueue;
+  bool _thresholdNotified = false;
+  bool _calledNotified = false;
 
   @override
   void initState() {
     super.initState();
+    _requestNotificationPermissionWithDialog();
     _loadQueue();
+  }
+
+  /// Request notification permission with user-friendly dialog
+  Future<void> _requestNotificationPermissionWithDialog() async {
+    // Check if already granted
+    final status = await Permission.notification.status;
+    if (status.isGranted) return;
+
+    // Show explanation dialog
+    if (!mounted) return;
+    final shouldRequest = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.notifications_active, color: Colors.teal),
+            SizedBox(width: 12),
+            Text('Enable Notifications'),
+          ],
+        ),
+        content: const Text(
+          'Get notified when your queue position reaches 3 or less, so you know when to head to the clinic.\n\nStay updated with real-time alerts!',
+          style: TextStyle(fontSize: 16),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Not Now'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Enable'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldRequest == true) {
+      final granted = await _geofencingService.requestNotificationPermission();
+      if (!granted && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Notification permission denied. You can enable it in app settings.'),
+            duration: Duration(seconds: 4),
+          ),
+        );
+      }
+    }
   }
 
   void _loadQueue() async {
@@ -32,6 +84,31 @@ class _CheckInScreenState extends State<CheckInScreen> {
         setState(() {
           _currentQueue = queueEntry;
         });
+        // One-time notification exactly when 3 remain before user's turn
+        if (queueEntry != null && !_thresholdNotified) {
+          final pos = queueEntry.position;
+          final target = queueEntry.userTargetPosition;
+          final shouldNotify = (queueEntry.status == QueueStatus.waiting ||
+                                queueEntry.status == QueueStatus.confirmed) &&
+                               pos == (target - 3);
+          if (shouldNotify) {
+            _geofencingService.showQueuePositionNotification(
+              clinicName: queueEntry.clinicName,
+              position: pos,
+              estimatedMinutes: queueEntry.estimatedWaitMinutes,
+            );
+            _thresholdNotified = true;
+          }
+        }
+
+        // Notify when the user's number is called (arrived at clinic)
+        if (queueEntry != null && !_calledNotified &&
+            queueEntry.status == QueueStatus.called) {
+          _geofencingService.showQueueArrivedNotification(
+            clinicName: queueEntry.clinicName,
+          );
+          _calledNotified = true;
+        }
       }
     });
   }

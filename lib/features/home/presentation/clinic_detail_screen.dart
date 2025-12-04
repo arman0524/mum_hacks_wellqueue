@@ -137,7 +137,7 @@ class _ClinicDetailScreenState extends State<ClinicDetailScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Successfully joined queue at position ${queueEntry.position}',
+              'Successfully joined queue. Your number: ${queueEntry.userTargetPosition}',
             ),
             backgroundColor: Colors.green,
           ),

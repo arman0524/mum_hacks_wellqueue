@@ -14,11 +14,14 @@ class QueueService {
 
   QueueEntry? _currentQueue;
   Timer? _simulationTimer;
+  int? _targetPosition; // Store the random target position for jump
 
   /// Get current active queue entry
   QueueEntry? get currentQueue => _currentQueue;
 
   /// Join a queue at a clinic
+  /// NOTE: This is a TEMPORARY DEMO feature with simulated queue (positions 2-10)
+  /// Will be replaced with live backend queue system in production
   Future<QueueEntry> joinQueue({
     required String clinicId,
     required String clinicName,
@@ -27,10 +30,15 @@ class QueueService {
     // Cancel existing queue if any
     await cancelQueue();
 
-    // Create new queue entry with random initial position (2-10)
+    // DEMO: Queue starts at 1 and counts UP to user's position (4-10)
+    // User gets notification at position 3 (before their turn)
+    // Queue will count: 1→2→3 (notification)→4→5...→user position
     final random = Random();
-    final position = random.nextInt(9) + 2; // 2 to 10
-    final waitTime = position * 7; // ~7 minutes per person
+    final userPosition = random.nextInt(7) + 4; // Random position: 4 to 10
+    _targetPosition = userPosition;
+    
+    final position = 1; // Queue always starts at 1
+    final waitTime = (userPosition - position) * 5; // Wait time based on remaining positions
 
     final queueEntry = QueueEntry(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -40,10 +48,11 @@ class QueueService {
       joinedAt: DateTime.now(),
       position: position,
       estimatedWaitMinutes: waitTime,
+      userTargetPosition: userPosition,
       status: QueueStatus.confirmed,
       updates: [
         QueueUpdate(
-          message: 'Successfully joined the queue',
+          message: 'Queue starting. Your position: ${userPosition}${_getOrdinalSuffix(userPosition)}',
           timestamp: DateTime.now(),
         ),
       ],
@@ -104,13 +113,13 @@ class QueueService {
     await prefs.remove('current_queue');
   }
 
-  /// Simulate queue progression (moves forward every 2-4 minutes)
+  /// Simulate queue progression (TEMPORARY - counts up from 1 to user position)
+  /// TODO: Replace with real-time backend updates when live queue is activated
   void _startQueueSimulation() {
     _simulationTimer?.cancel();
     
-    // Simulate queue movement every 30 seconds (for demo purposes)
-    // In production, you'd connect to real backend updates
-    _simulationTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+    // Queue moves every 3 seconds, counting UP from 1 to user's position
+    _simulationTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
       if (_currentQueue == null) {
         timer.cancel();
         return;
@@ -124,48 +133,41 @@ class QueueService {
         return;
       }
 
-      // Move forward in queue
-      if (_currentQueue!.position > 1) {
-        final random = Random();
-        final shouldUpdate = random.nextBool(); // 50% chance to move forward
+      // Queue counts up until reaching user's position
+      if (_targetPosition != null && _currentQueue!.position < _targetPosition!) {
+        final newPosition = _currentQueue!.position + 1;
+        final updates = List<QueueUpdate>.from(_currentQueue!.updates);
         
-        if (shouldUpdate) {
-          final newPosition = _currentQueue!.position - 1;
-          final newWaitTime = newPosition * 7;
-          
-          final updates = List<QueueUpdate>.from(_currentQueue!.updates);
-          
-          // Add random clinic updates
-          final clinicUpdates = [
-            'Patient ahead completed their visit',
-            'Queue moving smoothly',
-            'Clinic is running on schedule',
-            'Doctor available soon',
-          ];
-          
-          if (random.nextInt(3) == 0) { // 33% chance for clinic update
-            updates.insert(0, QueueUpdate(
-              message: clinicUpdates[random.nextInt(clinicUpdates.length)],
-              timestamp: DateTime.now(),
-            ));
-          }
-          
+        // Regular queue movement update
+        final random = Random();
+        final clinicUpdates = [
+          'Queue progressing: now calling position $newPosition',
+          'Patient completed their visit',
+          'Queue moving smoothly',
+        ];
+        
+        if (random.nextInt(2) == 0) {
           updates.insert(0, QueueUpdate(
-            message: 'Your position updated to $newPosition${_getOrdinalSuffix(newPosition)}',
+            message: clinicUpdates[random.nextInt(clinicUpdates.length)],
             timestamp: DateTime.now(),
           ));
-
-          _currentQueue = _currentQueue!.copyWith(
-            position: newPosition,
-            estimatedWaitMinutes: newWaitTime,
-            updates: updates,
-          );
-
-          _saveQueue(_currentQueue!);
-          _queueController.add(_currentQueue);
         }
-      } else {
-        // You're next! Change status to called
+        
+        // Calculate remaining wait time (user position - current position)
+        final remainingPositions = (_targetPosition! - newPosition).clamp(0, 1000);
+        final newWaitTime = remainingPositions * 5;
+
+        _currentQueue = _currentQueue!.copyWith(
+          position: newPosition,
+          estimatedWaitMinutes: newWaitTime,
+          userTargetPosition: _targetPosition,
+          updates: updates,
+        );
+
+        _saveQueue(_currentQueue!);
+        _queueController.add(_currentQueue);
+      } else if (_targetPosition != null && _currentQueue!.position >= _targetPosition!) {
+        // Reached user's position: mark as called
         final updates = List<QueueUpdate>.from(_currentQueue!.updates);
         updates.insert(0, QueueUpdate(
           message: 'You are next! Please proceed to the clinic',
@@ -174,6 +176,8 @@ class QueueService {
 
         _currentQueue = _currentQueue!.copyWith(
           status: QueueStatus.called,
+          estimatedWaitMinutes: 0,
+          userTargetPosition: _targetPosition,
           updates: updates,
         );
 

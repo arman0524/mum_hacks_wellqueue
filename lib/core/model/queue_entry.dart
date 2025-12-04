@@ -6,6 +6,7 @@ class QueueEntry {
   final DateTime joinedAt;
   final int position;
   final int estimatedWaitMinutes;
+  final int userTargetPosition;
   final QueueStatus status;
   final List<QueueUpdate> updates;
 
@@ -17,6 +18,7 @@ class QueueEntry {
     required this.joinedAt,
     required this.position,
     required this.estimatedWaitMinutes,
+    required this.userTargetPosition,
     required this.status,
     this.updates = const [],
   });
@@ -29,6 +31,7 @@ class QueueEntry {
     DateTime? joinedAt,
     int? position,
     int? estimatedWaitMinutes,
+    int? userTargetPosition,
     QueueStatus? status,
     List<QueueUpdate>? updates,
   }) {
@@ -40,6 +43,7 @@ class QueueEntry {
       joinedAt: joinedAt ?? this.joinedAt,
       position: position ?? this.position,
       estimatedWaitMinutes: estimatedWaitMinutes ?? this.estimatedWaitMinutes,
+      userTargetPosition: userTargetPosition ?? this.userTargetPosition,
       status: status ?? this.status,
       updates: updates ?? this.updates,
     );
@@ -54,6 +58,7 @@ class QueueEntry {
       'joinedAt': joinedAt.toIso8601String(),
       'position': position,
       'estimatedWaitMinutes': estimatedWaitMinutes,
+      'userTargetPosition': userTargetPosition,
       'status': status.name,
       'updates': updates.map((u) => u.toJson()).toList(),
     };
@@ -68,6 +73,7 @@ class QueueEntry {
       joinedAt: DateTime.parse(json['joinedAt']),
       position: json['position'],
       estimatedWaitMinutes: json['estimatedWaitMinutes'],
+      userTargetPosition: json['userTargetPosition'] ?? (json['userTargetPosition'] as int? ?? 4),
       status: QueueStatus.values.firstWhere((e) => e.name == json['status']),
       updates: (json['updates'] as List?)
               ?.map((u) => QueueUpdate.fromJson(u))

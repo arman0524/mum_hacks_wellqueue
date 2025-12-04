@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'queue_service.dart';
 
 /// Service to handle geofencing and automatic check-in when user arrives near clinic
@@ -33,7 +34,7 @@ class GeofencingService {
 
   /// Initialize notification system
   Future<void> initializeNotifications() async {
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings('@drawable/ic_notification');
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
@@ -49,6 +50,43 @@ class GeofencingService {
       initSettings,
       onDidReceiveNotificationResponse: _onNotificationTapped,
     );
+    
+    // Request notification permission on supported platforms (Android 13+, iOS)
+    await requestNotificationPermission();
+  }
+  /// Request notification permissions (Android 13+, iOS)
+  Future<bool> requestNotificationPermission() async {
+    try {
+      // For Android 13+, use permission_handler
+      final status = await Permission.notification.status;
+      
+      if (status.isDenied || status.isPermanentlyDenied) {
+        final result = await Permission.notification.request();
+        if (kDebugMode) {
+          print('Notification permission result: $result');
+        }
+        return result.isGranted;
+      }
+      
+      // For iOS
+      final iosPlugin = _notificationsPlugin.resolvePlatformSpecificImplementation<
+          IOSFlutterLocalNotificationsPlugin>();
+      if (iosPlugin != null) {
+        final granted = await iosPlugin.requestPermissions(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+        return granted ?? false;
+      }
+      
+      return status.isGranted;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Notification permission request failed: $e');
+      }
+      return false;
+    }
   }
 
   /// Handle notification tap
@@ -69,7 +107,7 @@ class GeofencingService {
     try {
       // Check location permission
       final permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied || 
+      if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
         if (kDebugMode) {
           print('Location permission not granted');
@@ -180,7 +218,7 @@ class GeofencingService {
       importance: Importance.high,
       priority: Priority.high,
       ticker: 'You have arrived!',
-      sound: RawResourceAndroidNotificationSound('notification'),
+      icon: '@drawable/ic_notification',
       enableVibration: true,
       playSound: true,
     );
@@ -202,6 +240,81 @@ class GeofencingService {
       'Tap to confirm your arrival and join the queue',
       notificationDetails,
       payload: 'confirm_arrival:$_activeClinicId',
+    );
+  }
+
+  /// Show notification when queue position is within threshold (e.g., <= 4)
+  Future<void> showQueuePositionNotification({
+    required String clinicName,
+    required int position,
+    required int estimatedMinutes,
+  }) async {
+    const androidDetails = AndroidNotificationDetails(
+      'queue_channel',
+      'Queue Notifications',
+      channelDescription: 'Notifications for queue position updates',
+      importance: Importance.max,
+      priority: Priority.max,
+      ticker: 'Queue update',
+      icon: '@drawable/ic_notification',
+      enableVibration: true,
+      playSound: true,
+    );
+
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
+    const notificationDetails = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    await _notificationsPlugin.show(
+      1,
+      'Queue moving fast at $clinicName',
+      'Reach the clinic: you\'re next in (pos $position). ETA ~ $estimatedMinutes min.',
+      notificationDetails,
+      payload: 'queue_position:$position',
+    );
+  }
+
+  /// Show notification when the user's queue is called (arrived)
+  Future<void> showQueueArrivedNotification({
+    required String clinicName,
+  }) async {
+    const androidDetails = AndroidNotificationDetails(
+      'queue_channel',
+      'Queue Notifications',
+      channelDescription: 'Notifications for queue position updates',
+      importance: Importance.max,
+      priority: Priority.max,
+      ticker: 'Queue arrived',
+      icon: '@drawable/ic_notification',
+      enableVibration: true,
+      playSound: true,
+      fullScreenIntent: true,
+    );
+
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
+    const notificationDetails = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    await _notificationsPlugin.show(
+      2,
+      'Your queue is ready at $clinicName',
+      'Please proceed to the clinic. You are being called now.',
+      notificationDetails,
+      payload: 'queue_called',
     );
   }
 
