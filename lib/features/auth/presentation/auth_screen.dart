@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../LocationAccessScreen/location_access_screen.dart';
 import '../../../core/services/auth_service.dart';
+import '../../../core/services/auth_storage_service.dart';
 
 enum AuthState {
   initial,
@@ -363,6 +364,8 @@ class _AuthScreenState extends State<AuthScreen> {
       );
 
       if (response.user != null) {
+        // Persist login state
+        await AuthStorageService.setLoggedIn(value: true, email: _emailController.text.trim());
         setState(() => _isLoading = false);
         if (context.mounted) {
           Navigator.of(context).pushAndRemoveUntil(
@@ -407,6 +410,8 @@ class _AuthScreenState extends State<AuthScreen> {
         );
 
         if (response.user != null) {
+          // Persist login state after successful sign-up
+          await AuthStorageService.setLoggedIn(value: true, email: _emailController.text.trim());
           setState(() => _isLoading = false);
           if (context.mounted) {
             Navigator.of(context).pushAndRemoveUntil(

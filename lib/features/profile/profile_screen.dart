@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/services/auth_service.dart';
 import '../auth/presentation/auth_screen.dart';
+import '../../core/services/auth_storage_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -65,6 +66,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (confirm == true) {
       try {
         await AuthService.signOut();
+        await AuthStorageService.clear();
         if (mounted) {
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(builder: (context) => const AuthScreen()),

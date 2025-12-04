@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'features/auth/presentation/auth_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/services/geofencing_service.dart';
+import 'core/services/auth_storage_service.dart';
+import 'features/LocationAccessScreen/location_access_screen.dart';
 
 Future<void> main() async{
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,11 +21,17 @@ Future<void> main() async{
   // Resume geofencing if it was active before app restart
   await geofencingService.resumeGeofenceMonitoring();
   
-  runApp(const MyApp());
+  // Determine initial route based on persisted login and current session
+  final persistedLogin = await AuthStorageService.isLoggedIn();
+  final hasSession = Supabase.instance.client.auth.currentSession != null;
+  runApp(MyApp(
+    startLoggedIn: persistedLogin && hasSession,
+  ));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final bool startLoggedIn;
+  const MyApp({super.key, this.startLoggedIn = false});
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -67,7 +75,7 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const AuthScreen(),
+      home: startLoggedIn ? const LocationAccessScreen() : const AuthScreen(),
     );
   }
 }
