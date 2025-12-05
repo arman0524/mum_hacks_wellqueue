@@ -178,10 +178,22 @@ class _CheckInScreenState extends State<CheckInScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  Icons.queue_outlined,
-                  size: 100,
-                  color: Colors.grey[300],
+                Container(
+                  width: 120,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      colors: [Theme.of(context).colorScheme.primary.withOpacity(0.15), Colors.grey[200]!],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                  child: Icon(
+                    Icons.queue_outlined,
+                    size: 64,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                 ),
                 const SizedBox(height: 24),
                 Text(
@@ -340,59 +352,114 @@ class _CheckInScreenState extends State<CheckInScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const SizedBox(height: 20),
-              Text(
-                _currentQueue!.status == QueueStatus.called
-                    ? "You're next!"
-                    : "You're in line",
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text.rich(
-                TextSpan(
-                  text: '${_currentQueue!.position}',
-                  style: TextStyle(
-                    fontSize: 80,
-                    fontWeight: FontWeight.bold,
-                    color: _currentQueue!.status == QueueStatus.called
-                        ? Colors.green
-                        : Colors.black,
-                  ),
-                  children: <TextSpan>[
-                    TextSpan(
-                      text: _getOrdinalSuffix(_currentQueue!.position),
-                      style: TextStyle(
-                        fontSize: 40,
-                        fontWeight: FontWeight.bold,
-                        color: _currentQueue!.status == QueueStatus.called
-                            ? Colors.green
-                            : Colors.black,
-                      ),
+              const SizedBox(height: 16),
+              // Header card with big number and status
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                _currentQueue!.status == QueueStatus.called
-                    ? 'Please proceed to the clinic'
-                    : 'Estimated wait time: ${_currentQueue!.estimatedWaitMinutes} minutes',
-                style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-              ),
-              const SizedBox(height: 32),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Chip(
-                  label: Text(_getStatusText(_currentQueue!.status)),
-                  backgroundColor: _getStatusColor(_currentQueue!.status).withOpacity(0.2),
-                  labelStyle: TextStyle(
-                    fontWeight: FontWeight.w500,
-                    color: _getStatusColor(_currentQueue!.status),
-                  ),
+                child: Row(
+                  children: [
+                    // Circular number with ring
+                    Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        SizedBox(
+                          width: 100,
+                          height: 100,
+                          child: CircularProgressIndicator(
+                            value: (_currentQueue!.position / (_currentQueue!.userTargetPosition.clamp(1, 10))),
+                            strokeWidth: 10,
+                            color: Theme.of(context).colorScheme.primary,
+                            backgroundColor: Colors.grey[200],
+                          ),
+                        ),
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '${_currentQueue!.position}',
+                              style: TextStyle(
+                                fontSize: 32,
+                                fontWeight: FontWeight.bold,
+                                color: _currentQueue!.status == QueueStatus.called
+                                    ? Colors.green
+                                    : Colors.black87,
+                              ),
+                            ),
+                            Text(
+                              _getOrdinalSuffix(_currentQueue!.position),
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.grey[700],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _currentQueue!.status == QueueStatus.called
+                                ? "You're next!"
+                                : "You're in line",
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Chip(
+                                label: Text(_getStatusText(_currentQueue!.status)),
+                                backgroundColor: _getStatusColor(_currentQueue!.status).withOpacity(0.15),
+                                labelStyle: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: _getStatusColor(_currentQueue!.status),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                _currentQueue!.status == QueueStatus.called
+                                    ? 'Please proceed to the clinic'
+                                    : 'ETA: ${_currentQueue!.estimatedWaitMinutes} min',
+                                style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          // Progress info
+                          LinearProgressIndicator(
+                            value: (_currentQueue!.position / (_currentQueue!.userTargetPosition.clamp(1, 10))),
+                            minHeight: 6,
+                            color: Theme.of(context).colorScheme.primary,
+                            backgroundColor: Colors.grey[200],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'From 1 to ${_currentQueue!.userTargetPosition} • ${(_currentQueue!.userTargetPosition - _currentQueue!.position).clamp(0, 100)} remaining',
+                            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 32),
@@ -413,10 +480,42 @@ class _CheckInScreenState extends State<CheckInScreen> {
                 final index = entry.key;
                 final update = entry.value;
                 final timeFormat = DateFormat('h:mm a');
-                return TimelineUpdate(
-                  title: update.message,
-                  time: timeFormat.format(update.timestamp),
-                  isFirst: index == 0,
+                return Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          index == 0 ? Icons.update : Icons.schedule,
+                          color: index == 0 ? Theme.of(context).colorScheme.primary : Colors.grey[600],
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                update.message,
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: index == 0 ? FontWeight.w600 : FontWeight.normal,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                timeFormat.format(update.timestamp),
+                                style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 );
               }).toList(),
               const SizedBox(height: 60),
@@ -467,7 +566,7 @@ class _CheckInScreenState extends State<CheckInScreen> {
                     ),
                   ),
                   child: const Text(
-                    'Cancel Check-In',
+                    'Cancel Queue',
                     style: TextStyle(
                       color: Colors.red,
                       fontSize: 16,
